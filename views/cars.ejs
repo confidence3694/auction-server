@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>경매 차량 목록</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            text-align: center;
+        }
+        .container {
+            width: 80%;
+            margin: 20px auto;
+        }
+        .car-card {
+            background: white;
+            padding: 15px;
+            margin: 10px;
+            border-radius: 10px;
+            box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.1);
+            display: inline-block;
+            width: 300px;
+            text-align: left;
+        }
+        .car-card h3 {
+            margin-bottom: 5px;
+            color: #333;
+        }
+        .car-card p {
+            margin: 5px 0;
+            font-size: 14px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <h1>경매 차량 목록</h1>
+    <div class="container">
+        <% cars.forEach(car => { %>
+            <div class="car-card">
+                <h3><%= car.차명 %></h3>
+                <p><strong>연식:</strong> <%= car.연식 %></p>
+                <p><strong>주행거리:</strong> <%= car.주행거리 %></p>
+                <p><strong>최저매각가격:</strong> <%= car.최저매각가격 %></p>
+                <p><strong>연료종류:</strong> <%= car.연료종류 %></p>
+                <p><strong>매각기일:</strong> <%= car.매각기일 %></p>
+            </div>
+        <% }) %>
+    </div>
+</body>
+</html>
