@@ -1,3 +1,14 @@
+from flask import Flask
+
+app = Flask(__name__)
+
+@app.route("/")
+def home():
+    return "🚀 경매 서버가 정상적으로 실행 중입니다!"
+
+# 기존 코드 그대로 유지!
+
+
 from flask import Flask, render_template, request
 import pymysql
 import re  
