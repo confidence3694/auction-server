@@ -6,8 +6,7 @@ from selenium.webdriver.support.ui import WebDriverWait, Select
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, NoSuchElementException
 from selenium.webdriver.chrome.service import Service  # ✅ 크롬 드라이버 실행용
-import gspread
-from oauth2client.service_account import ServiceAccountCredentials
+
 
 # ✅ 크롬 드라이버 실행 함수
 def setup_driver():
@@ -29,14 +28,9 @@ def setup_driver():
         print(f"❌ 크롬 드라이버 실행 오류: {e}")
         return None  # ❌ 오류 발생 시 None 반환
 
-# ✅ Google Sheets API 인증 설정
-def get_google_sheets_client():
-    """📌 Google Sheets API 인증 및 클라이언트 생성"""
-    CREDENTIALS_PATH = "credentials.json"  # 인증 JSON 파일 경로
-    scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-    creds = ServiceAccountCredentials.from_json_keyfile_name(CREDENTIALS_PATH, scope)
-    client = gspread.authorize(creds)
-    return client
+
+
+
 
 
 def extract_data_from_page(driver, row_index):
@@ -72,6 +66,26 @@ def extract_data_from_page(driver, row_index):
             data["물건번호"] = 물건번호_element.text.strip()
         except (TimeoutException, NoSuchElementException):
             data["물건번호"] = "N/A"
+
+        try:
+            등록번호_xpath = "//*[@id='mf_wfm_mainFrame_gen_carGdsDts_0_spn_carRegNo']"
+            등록번호_element = WebDriverWait(driver, 5).until(
+                EC.presence_of_element_located((By.XPATH, 등록번호_xpath))
+            )
+            data["등록번호"] = 등록번호_element.text.strip()
+        except (TimeoutException, NoSuchElementException):
+            data["등록번호"] = "N/A"
+
+        try:
+            담당_xpath = "//*[@id='mf_wfm_mainFrame_spn_gdsDtlSrchCortNm']"
+            담당_element = WebDriverWait(driver, 5).until(
+                EC.presence_of_element_located((By.XPATH, 담당_xpath))
+            )
+            data["담당"] = 담당_element.text.strip()
+        except (TimeoutException, NoSuchElementException):
+            data["담당"] = "N/A"
+
+  
 
         print(f"✅ 데이터 수집 완료: {data}")
         return data
@@ -184,42 +198,7 @@ def search_auction_items(driver):
 import pymysql
 from datetime import datetime
 
-def delete_old_auctions_from_sheets():
-    """📌 Google 스프레드시트에서 경매가 지난 데이터 자동 삭제"""
-    try:
-        client = get_google_sheets_client()
-        spreadsheet = client.open("경매 차량 데이터")
-        sheet = spreadsheet.sheet1
 
-        # ✅ 모든 데이터 가져오기
-        records = sheet.get_all_values()
-        if len(records) <= 1:
-            print("⚠️ 스프레드시트에 데이터가 없습니다.")
-            return
-        
-        # ✅ 헤더 유지 & 데이터만 필터링
-        headers = records[0]
-        new_data = [headers]  # 헤더 추가
-
-        today = datetime.today().strftime("%Y.%m.%d %H:%M")  # 현재 날짜 (형식 맞추기)
-
-        for row in records[1:]:
-            try:
-                auction_date = row[5].strip()  # ✅ "매각기일" 컬럼 (6번째 컬럼) & 공백 제거
-                if auction_date >= today:  # ✅ 오늘 이후의 데이터만 유지
-                    new_data.append(row)
-            except IndexError:
-                continue
-
-        # ✅ 기존 데이터 삭제 후 새로운 데이터 저장
-        sheet.clear()
-        for row in new_data:
-            sheet.append_row(row)
-
-        print("✅ Google 스프레드시트에서 지난 경매 데이터 삭제 완료!")
-
-    except Exception as e:
-        print(f"❌ Google 스프레드시트 데이터 삭제 오류: {e}")
 
 def delete_old_auctions():
     """📌 MySQL에서 경매가 지난 데이터 자동 삭제"""
@@ -251,31 +230,43 @@ def delete_old_auctions():
 
 
 
+# ✅ MySQL 연결 함수
+def connect_mysql():
+    """📌 Cloud SQL 연결"""
+    return pymysql.connect(
+        host="34.64.140.69",  # ✅ Cloud SQL 공개 IP
+        user="root",  # ✅ 사용자명
+        password="ss770528!!",  # ✅ 비밀번호 (본인 설정값 입력)
+        database="auction_db",
+        cursorclass=pymysql.cursors.DictCursor,
+        charset="utf8mb4"
+    )
+
 def save_to_mysql(data):
     """📌 크롤링한 데이터를 MySQL auction_cars 테이블에 저장"""
+    conn = None  # 🔹 conn을 미리 선언하여 오류 방지
     try:
-        # ✅ MySQL 연결
         conn = pymysql.connect(
-            host="localhost", user="root", password="ss770528!!", database="auction_db"
+            host="localhost",
+            user="root",
+            password="ss770528!!",
+            database="auction_db",
+            cursorclass=pymysql.cursors.DictCursor,
+            charset="utf8mb4"  # 🔹 UTF-8 설정
         )
         cursor = conn.cursor()
 
-        # ✅ MySQL INSERT 쿼리
+        # ✅ MySQL INSERT 쿼리 (중복 시 최저매각가격 업데이트)
         query = """
-        INSERT INTO auction_cars (차명, 연식, 주행거리, 최저매각가격, 연료종류, 매각기일, 사건번호, 물건번호)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s);
+        INSERT INTO auction_cars (차명, 연식, 주행거리, 최저매각가격, 연료종류, 매각기일, 사건번호, 물건번호, 담당, 등록번호)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        ON DUPLICATE KEY UPDATE 최저매각가격 = VALUES(최저매각가격);
         """
 
-        # ✅ 데이터 추출
-        car_data = (
-            data.get("차명", "N/A"),
-            data.get("연식", "N/A"),
-            data.get("주행거리", "N/A"),
-            data.get("최저매각가격", "N/A"),
-            data.get("연료종류", "N/A"),
-            data.get("매각기일", "N/A"),
-            data.get("사건번호", "N/A"),
-            data.get("물건번호", "N/A"),
+        # ✅ 데이터 UTF-8 변환 적용
+        car_data = tuple(
+            str(data.get(key, "N/A")).encode("utf-8", "ignore").decode("utf-8") for key in
+            ["차명", "연식", "주행거리", "최저매각가격", "연료종류", "매각기일", "사건번호", "물건번호", "담당", "등록번호"]
         )
 
         # ✅ 데이터 삽입 실행
@@ -288,52 +279,12 @@ def save_to_mysql(data):
         print(f"❌ MySQL 저장 오류: {e}")
 
     finally:
-        cursor.close()
-        conn.close()
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
 
 
-def save_to_google_sheets(data):
-    """📌 크롤링한 데이터를 Google Sheets에 저장 (물건번호 포함)"""
-    try:
-        client = get_google_sheets_client()
-        spreadsheet = client.open("경매 차량 데이터")
-        sheet = spreadsheet.sheet1
-
-        # ✅ 기존 데이터 가져오기
-        existing_records = sheet.get_all_values()
-        existing_keys = set()
-
-        # ✅ 기존 데이터에서 "사건번호 + 물건번호 + 금액" 조합을 저장
-        for row in existing_records[1:]:
-            try:
-                case_number = str(row[6]).strip() if len(row) > 6 else "N/A"
-                item_number = str(row[7]).strip() if len(row) > 7 else "N/A"
-                price = str(row[3]).replace(",", "").strip() if len(row) > 3 else "N/A"
-                existing_keys.add((case_number, item_number, price))
-            except IndexError:
-                continue
-
-        # ✅ 새로운 데이터 중복 체크
-        new_case_number = str(data.get("사건번호", "N/A")).strip()
-        new_item_number = str(data.get("물건번호", "N/A")).strip()
-        new_price = str(data.get("최저매각가격", "N/A")).replace(",", "").strip()
-
-        if (new_case_number, new_item_number, new_price) in existing_keys:
-            print(f"⚠️ 중복 데이터 발견! 저장하지 않음: 사건번호({new_case_number}), 물건번호({new_item_number}), 최저매각가격({new_price})")
-            return
-
-        # ✅ 헤더 추가 (물건번호 포함)
-        if len(existing_records) == 0:
-            headers = list(data.keys())
-            sheet.append_row(headers)
-            print("✅ Google Sheets 헤더 추가 완료!")
-
-        row = list(data.values())
-        sheet.append_row(row)
-        print(f"✅ Google Sheets 저장 완료: 사건번호({new_case_number}), 물건번호({new_item_number}), 최저매각가격({new_price})")
-
-    except Exception as e:
-        print(f"❌ Google Sheets 저장 오류: {e}")
 
 
 
@@ -364,7 +315,7 @@ def click_all_usage_locations(driver):
                     data = extract_data_from_page(driver, i)  # ✅ row_index(i)를 추가하여 오류 해결!
                     if data:
                         total_processed += 1
-                        save_to_google_sheets(data)
+                        
                         save_to_mysql(data)
 
                     back_button = WebDriverWait(driver, 5).until(
@@ -393,10 +344,57 @@ def main():
         print("❌ 드라이버 실행 실패. 프로그램 종료.")
         return  
 
+    all_cars = []  # ✅ 크롤링한 데이터를 저장할 리스트
+
     try:
         driver.get("https://www.courtauction.go.kr/")
         search_auction_items(driver)
-        click_all_usage_locations(driver)
+        
+        total_processed = 0
+        page = 1
+
+        while True:  # ✅ 🔵 제한 없이 크롤링
+            print(f"📌 페이지 {page} 크롤링 시작...")
+
+            try:
+                usage_links = WebDriverWait(driver, 10).until(
+                    EC.presence_of_all_elements_located((By.XPATH, "//a[contains(text(), '사용본거지')]"))
+                )
+                print(f"🔎 발견된 차량 개수: {len(usage_links)} (페이지 {page})")
+
+                for i in range(len(usage_links)):  
+                    try:
+                        usage_links = WebDriverWait(driver, 10).until(
+                            EC.presence_of_all_elements_located((By.XPATH, "//a[contains(text(), '사용본거지')]"))
+                        )
+                        driver.execute_script("arguments[0].click();", usage_links[i])
+                        print(f"✅ 차량 {i+1} 상세 페이지 이동 (페이지 {page})")
+                        WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.TAG_NAME, "body")))
+
+                        data = extract_data_from_page(driver, i)
+                        if data:
+                            total_processed += 1
+                            all_cars.append(data)  # ✅ 크롤링한 데이터를 리스트에 추가
+                            
+                            save_to_mysql(data)
+
+                        back_button = WebDriverWait(driver, 5).until(
+                            EC.element_to_be_clickable((By.XPATH, "//*[@id='mf_wfm_mainFrame_trigger1']"))
+                        )
+                        driver.execute_script("arguments[0].click();", back_button)
+
+                    except Exception as e:
+                        print(f"❌ 차량 크롤링 중 오류: {e}")
+
+                if not click_next_page(driver, page):  # ✅ 다음 페이지가 없으면 종료
+                    break
+                page += 1  
+
+            except Exception as e:
+                print(f"❌ 페이지 크롤링 중 오류: {e}")
+                break
+
+        print(f"✅ 총 크롤링된 차량 수: {total_processed}")
 
     except Exception as e:
         print(f"❌ 실행 중 오류 발생: {e}")
@@ -405,8 +403,8 @@ def main():
         input("✔ 크롤링 완료! 브라우저 닫으려면 엔터...")
         driver.quit()
 
-if __name__ == "__main__":
-    main()
 
+if __name__ == "__main__":
     delete_old_auctions()  # ✅ 크롤링 전에 지난 데이터 삭제!
-    main()
+    main()  # ✅ 크롤링 실행 (한 번만 실행)
+

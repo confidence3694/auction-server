@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>검색 결과</title>
+    <style>
+        body { text-align: center; font-family: Arial, sans-serif; }
+        table { width: 80%; margin: auto; border-collapse: collapse; }
+        th, td { border: 1px solid black; padding: 10px; text-align: center; }
+        th { background-color: #f2f2f2; }
+        .back-button { display: inline-block; margin: 20px; padding: 10px 20px; background-color: #28a745; color: white; text-decoration: none; border-radius: 5px; }
+    </style>
+</head>
+<body>
+
+    <h1>검색 결과</h1>
+    <a href="/" class="back-button">메인 페이지로 돌아가기</a>
+
+    <table>
+        <tr>
+            <th>차량명</th>
+            <th>연식</th>
+            <th>주행거리</th>
+            <th>최저매각가격</th>
+            <th>연료종류</th>
+            <th>매각기일</th>
+            <th>사건번호</th>
+            <th>물건번호</th>
+            <th>등록번호</th>
+            <th>담당</th>
+        </tr>
+        {% for car in cars %}
+        <tr>
+            <td>{{ car.차량명 }}</td>
+            <td>{{ car.연식 }}</td>
+            <td>{{ car.주행거리 }}</td>
+            <td>{{ car.최저매각가격 }}</td>
+            <td>{{ car.연료종류 }}</td>
+            <td>{{ car.매각기일 }}</td>
+            <td>{{ car.사건번호 }}</td>
+            <td>{{ car.물건번호 }}</td>
+            <td>{{ car.등록번호 }}</td>
+            <td><a href="{{ car.경매_URL }}" target="_blank">{{ car.담당 }}</a></td>
+        </tr>
+        {% endfor %}
+    </table>
+
+</body>
+</html>

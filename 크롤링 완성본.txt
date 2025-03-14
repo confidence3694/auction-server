@@ -73,6 +73,26 @@ def extract_data_from_page(driver, row_index):
         except (TimeoutException, NoSuchElementException):
             data["물건번호"] = "N/A"
 
+        try:
+            등록번호_xpath = "//*[@id='mf_wfm_mainFrame_gen_carGdsDts_0_spn_carRegNo']"
+            등록번호_element = WebDriverWait(driver, 5).until(
+                EC.presence_of_element_located((By.XPATH, 등록번호_xpath))
+            )
+            data["등록번호"] = 등록번호_element.text.strip()
+        except (TimeoutException, NoSuchElementException):
+            data["등록번호"] = "N/A"
+
+        try:
+            담당_xpath = "//*[@id='mf_wfm_mainFrame_spn_gdsDtlSrchCortNm']"
+            담당_element = WebDriverWait(driver, 5).until(
+                EC.presence_of_element_located((By.XPATH, 담당_xpath))
+            )
+            data["담당"] = 담당_element.text.strip()
+        except (TimeoutException, NoSuchElementException):
+            data["담당"] = "N/A"
+
+  
+
         print(f"✅ 데이터 수집 완료: {data}")
         return data
 
@@ -181,8 +201,75 @@ def search_auction_items(driver):
     time.sleep(5)
     print("✅ 검색 완료!")
 
-
 import pymysql
+from datetime import datetime
+
+def delete_old_auctions_from_sheets():
+    """📌 Google 스프레드시트에서 경매가 지난 데이터 자동 삭제"""
+    try:
+        client = get_google_sheets_client()
+        spreadsheet = client.open("경매 차량 데이터")
+        sheet = spreadsheet.sheet1
+
+        # ✅ 모든 데이터 가져오기
+        records = sheet.get_all_values()
+        if len(records) <= 1:
+            print("⚠️ 스프레드시트에 데이터가 없습니다.")
+            return
+        
+        # ✅ 헤더 유지 & 데이터만 필터링
+        headers = records[0]
+        new_data = [headers]  # 헤더 추가
+
+        today = datetime.today().strftime("%Y.%m.%d %H:%M")  # 현재 날짜 (형식 맞추기)
+
+        for row in records[1:]:
+            try:
+                auction_date = row[5].strip()  # ✅ "매각기일" 컬럼 (6번째 컬럼) & 공백 제거
+                if auction_date >= today:  # ✅ 오늘 이후의 데이터만 유지
+                    new_data.append(row)
+            except IndexError:
+                continue
+
+        # ✅ 기존 데이터 삭제 후 새로운 데이터 저장
+        sheet.clear()
+        for row in new_data:
+            sheet.append_row(row)
+
+        print("✅ Google 스프레드시트에서 지난 경매 데이터 삭제 완료!")
+
+    except Exception as e:
+        print(f"❌ Google 스프레드시트 데이터 삭제 오류: {e}")
+
+def delete_old_auctions():
+    """📌 MySQL에서 경매가 지난 데이터 자동 삭제"""
+    try:
+        conn = pymysql.connect(
+            host="localhost",
+            user="root",
+            password="ss770528!!",
+            database="auction_db",
+            cursorclass=pymysql.cursors.DictCursor,
+            charset="utf8mb4"
+        )
+        cursor = conn.cursor()
+
+        # ✅ 현재 날짜보다 경매 기일이 지난 데이터 삭제
+        delete_query = "DELETE FROM auction_cars WHERE STR_TO_DATE(LEFT(매각기일, 16), '%Y.%m.%d %H:%i') < NOW();"
+        cursor.execute(delete_query)
+        conn.commit()
+        print("✅ MySQL에서 지난 경매 데이터 삭제 완료!")
+
+    except Exception as e:
+        print(f"❌ MySQL 데이터 삭제 오류: {e}")
+
+    finally:
+        cursor.close()
+        conn.close()
+
+
+
+
 
 def save_to_mysql(data):
     """📌 크롤링한 데이터를 MySQL auction_cars 테이블에 저장"""
@@ -195,8 +282,8 @@ def save_to_mysql(data):
 
         # ✅ MySQL INSERT 쿼리
         query = """
-        INSERT INTO auction_cars (차명, 연식, 주행거리, 최저매각가격, 연료종류, 매각기일, 사건번호, 물건번호)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s);
+        INSERT INTO auction_cars (차명, 연식, 주행거리, 최저매각가격, 연료종류, 매각기일, 사건번호, 물건번호, 담당, 등록번호)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """
 
         # ✅ 데이터 추출
@@ -209,6 +296,8 @@ def save_to_mysql(data):
             data.get("매각기일", "N/A"),
             data.get("사건번호", "N/A"),
             data.get("물건번호", "N/A"),
+            data.get("담당", "N/A"),
+            data.get("등록번호", "N/A")
         )
 
         # ✅ 데이터 삽입 실행
@@ -341,3 +430,5 @@ def main():
 if __name__ == "__main__":
     main()
 
+    delete_old_auctions()  # ✅ 크롤링 전에 지난 데이터 삭제!
+    main()

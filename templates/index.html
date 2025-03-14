@@ -4,82 +4,192 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>경매 차량 목록</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
-        }
-        th, td {
-            border: 1px solid #ddd;
-            padding: 10px;
-            text-align: center;
-        }
-        th {
-            background-color: #4CAF50;
-            color: white;
-        }
-        tr:nth-child(even) {
-            background-color: #f2f2f2;
-        }
-        input {
-            padding: 8px;
-            margin-bottom: 10px;
-            width: 300px;
-        }
-        button {
-            padding: 8px 12px;
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-            cursor: pointer;
-        }
-    </style>
+
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        text-align: center;
+    }
+
+    
+    h1 {
+        font-size: 3em; /* 기존보다 크게 */
+        color: #333; /* 글씨 색 추가 */
+    }
+
+    /* ++++++ 검색창 스타일 조정 ++++++ */
+    #search-box {
+        width: 300px; /* 기존보다 넓게 */
+        height: 40px; /* 높이 증가 */
+        font-size: 1.2em; /* 글자 크기 증가 */
+        padding: 5px; /* 안쪽 여백 추가 */
+        border: 2px solid #007BFF; /* 파란색 테두리 추가 */
+        border-radius: 5px; /* 모서리 둥글게 */
+    }
+
+    button {
+        height: 46px;
+        font-size: 1.2em;
+        padding: 5px 15px;
+        background-color: #007BFF;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+    }
+
+    button:hover {
+        background-color: #0056b3;
+    }
+
+    /* ++++++++++ 설명 박스 스타일 추가 ++++++++++ */
+    .guide-box {
+        width: 80%;
+        margin: 20px auto;
+        padding: 15px;
+        background-color: #f8f9fa;
+        border: 1px solid #ddd;
+        border-radius: 10px;
+        text-align: left;
+    }
+
+    .guide-box h2 {
+        color: #007BFF;
+    }
+
+    .guide-box p {
+        font-size: 1.1em;
+    }
+
+    .guide-box ul {
+        list-style-type: disc;
+        margin-left: 20px;
+    }
+
+
+/* ++++++ 테이블 스타일 추가 ++++++ */
+table {
+    width: 90%;
+    margin: 20px auto;
+    border-collapse: collapse;
+    table-layout: fixed; /* ✅ 모든 열의 너비를 균일하게 설정 */
+}
+
+th, td {
+    border: 1px solid #ddd; /* ✅ 테두리 유지 */
+    padding: 12px;
+    text-align: center;
+    word-break: break-word;
+    vertical-align: middle; /* ✅ 모든 셀 높이 동일하게 */
+    height: 60px; /* ✅ 모든 칸의 높이를 동일하게 설정 */
+}
+
+/* ++++++ 설명 박스 중앙 정렬 ++++++ */
+.guide-box {
+    width: 80%;
+    margin: 20px auto;
+    padding: 15px;
+    background-color: #f8f9fa;
+    border: 1px solid #ddd;
+    border-radius: 10px;
+    text-align: center; /* ✅ 글씨 중앙 정렬 */
+}
+
+
+
+
+
+</style>
+
+
 </head>
+
+
+
+
+
+
 <body>
-
     <h1>경매 차량 목록</h1>
+    <input type="text" placeholder="차량명 검색" id="search-box">
+    <button onclick="searchCar()">검색</button>
 
-    <!-- ✅ 차량 검색 기능 -->
-    <form method="GET" action="/">
-        <input type="text" name="search" placeholder="차량 이름 검색" value="{{ search_query }}">
-        <button type="submit">검색</button>
-    </form>
+    <button onclick="toggleGuide()" class="text-blue-600 font-bold">🚗 자동차 사진 확인 방법</button>
+    <div id="guide" class="guide-box hidden">
+        <h2>🚗 자동차 사진 확인 방법</h2>
+        <p>경매 차량의 실제 사진을 확인하려면 아래 방법을 따르세요:</p>
+        <ul>
+            <li>테이블에서 <strong>"담당"</strong> 열 아래의 법원 링크를 클릭</li>
+            <li>법원 경매 사이트 이동후 <strong>법원 이름 + 사건번호 입력 (예 : 2024타경 00001) </strong></li>
+            <li>검색 후 차량 상세 페이지에서 <strong>실제 차량 이미지 확인</strong></li>
+        </ul>
+    </div>
+    
+    
+<!-- 기존 코드 유지 -->
+<table>
+    <thead>
+        <tr>
+            <th>차명</th>
+            <th>연식</th>
+            <th>주행거리</th>
+            <th>최저매각가격</th>
+            <th>연료 종류</th>
+            <th>매각기일</th>
+            <th>사건번호</th>
+            <th>물건번호</th>
+            <th>등록번호</th>
+            <th>담당</th>
+        </tr>
+    </thead>
+    <tbody id="carTableBody">
+    <!-- Google Sheets에서 불러온 데이터가 여기에 들어감 -->
+    </tbody>
+       
+        <tr>
+            <!-- 차명 2줄 이상 표시 가능하도록 조정 -->
+            <td class="car-name">{{ car.차명 }}</td>
+            <td>{{ car.연식 }}</td>
+            
+                        
+            <!-- 주행거리 중복 'km' 제거 -->
+            <td>{{ car.주행거리.replace(' km km', ' km') }}</td>
+            <td>{{ car.최저매각가격 }}</td>
+            <td class="fuel-type">{{ car.연료종류 }}</td> <!-- ✅ 여기에 추가 -->
+            <td>
+            <!-- 매각기일 날짜와 시간 분리 -->
+            
+                <strong>{{ car.매각기일.split(' ')[0] }}</strong><br>
+                {{ car.매각기일.split(' ', 1)[1] }}
+            </td>
+            <td>{{ car.사건번호 }}</td>
+            <td>{{ car.물건번호 }}</td>
+            <td>{{ car.등록번호 }}</td>
+            
+            <!-- 담당 법원 링크 유지 -->
+            <td>
+                <a href="https://www.courtauction.go.kr/pgj/index.on?w2xPath=/pgj/ui/pgj100/PGJ151F00.xml" target="_blank">{{ car.담당 }}</a>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
 
-    <table>
-        <thead>
-            <tr>
-                <th>번호</th>
-                <th>차량명</th>
-                <th>연식</th>
-                <th>주행거리</th>
-                <th>최저 매각 가격</th>
-                <th>연료 종류</th>
-                <th>매각 기일</th>
-                <th>사건 번호</th>
-                <th>물건 번호</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for car in cars %}
-            <tr>
-                <td>{{ car["순서 ID"] }}</td>
-                <td>{{ car["차량명"] }}</td>
-                <td>{{ car["연식"] }}</td>
-                <td>{{ car["주행거리"] }}</td>
-                <td>{{ car["최저 매각 가격"] }}</td>
-                <td>{{ car["연료 종류"] }}</td>
-                <td>{{ car["매각 기일"] }}</td>
-                <td>{{ car["사건 번호"] }}</td>
-                <td>{{ car["물건 번호"] }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+    <!-- ++++++++++ JavaScript 추가 (버튼 클릭 시 내용 표시) ++++++++++ -->
+    <script>
+    function toggleGuide() {
+        const guide = document.getElementById("guide");
+        guide.classList.toggle("hidden");
+    }
+    </script>
+    <!-- ++++++++++++++++++++++++++++++++++++++++++++++ -->
 
-</body>
-</html>
+    <!-- ++++++++++ CSS 추가 (숨김 기능 추가) ++++++++++ -->
+    <style>
+        .hidden {
+            display: none;
+        }
+    
+    </style>
+    <script src="script.js"></script>
+    </body>
